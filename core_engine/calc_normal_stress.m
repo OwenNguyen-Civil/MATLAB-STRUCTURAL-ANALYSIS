@@ -1,11 +1,11 @@
 function [Stress_Res, Geom_Props] = calc_normal_stress(PolyCoords, CheckPoints, Loads)
 % CALC_NORMAL_STRESS (V3 - FINAL)
-% - Tự động quét đỉnh tìm Max/Min
-% - Tính góc nghiêng trục trung hòa (Neutral Axis Rotation)
+% - Automatically scan vertices to find Max/Min
+% - Calculate Neutral Axis Rotation angle
 % -----------------------------------------------------------------------
-    % Trước khi tạo polyshape, lọc các điểm trùng nhau
+    % Before creating polyshape, filter out duplicate points
     PolyCoords = unique(PolyCoords, 'rows', 'stable');
-    % --- 1. TÍNH ĐẶC TRƯNG HÌNH HỌC ---
+    % --- 1. CALCULATE GEOMETRIC PROPERTIES ---
     x_poly = PolyCoords(:, 1)';
     y_poly = PolyCoords(:, 2)';
     
@@ -36,41 +36,42 @@ function [Stress_Res, Geom_Props] = calc_normal_stress(PolyCoords, CheckPoints, 
     Iy = Iyy_O - Area * Cx^2;
     Ixy = Ixy_O - Area * Cx * Cy;
     
-    % Góc xoay trục quán tính chính (Alpha) - Chỉ phụ thuộc hình học
+    % Principal Axis Rotation Angle (Alpha) - Only depends on geometry
+    % 
     alpha_rad = 0.5 * atan2(-2 * Ixy, Ix - Iy);
     
-    % --- 2. TÍNH TOÁN LIÊN QUAN ĐẾN TẢI TRỌNG & TRỤC TRUNG HÒA ---
+    % --- 2. CALCULATIONS RELATED TO LOADS & NEUTRAL AXIS ---
     Nz = Loads.Nz; Mx = Loads.Mx; My = Loads.My;
     Det_I = Ix * Iy - Ixy^2;
     
-    % Hệ số trong phương trình ứng suất: Sigma = Term_N + K1*y + K2*x
-    % K1 là hệ số của y, K2 là hệ số của x
+    % Coefficients in stress equation: Sigma = Term_N + K1*y + K2*x
+    % K1 is the coefficient for y, K2 is the coefficient for x
     K1 = -(Mx * Iy - My * Ixy) / Det_I; 
     K2 =  (My * Ix - Mx * Ixy) / Det_I;
     Term_N = Nz / Area;
     
     calc_sigma = @(x, y) Term_N + K1 * y + K2 * x;
 
-    % --- TÍNH GÓC TRỤC TRUNG HÒA (BETA) ---
-    % Phương trình trục trung hòa: Sigma = 0 => Term_N + K1*y + K2*x = 0
+    % --- CALCULATE NEUTRAL AXIS ANGLE (BETA) ---
+    % Neutral Axis Equation: Sigma = 0 => Term_N + K1*y + K2*x = 0
     % => y = (-K2/K1)*x - (Term_N/K1)
-    % Hệ số góc (Slope) = -K2/K1
+    % Slope = -K2/K1
     
-    if abs(K1) < 1e-10 % Tránh chia cho 0 (khi uốn quanh trục yếu nhất)
-        Beta_deg = 90; % Trục thẳng đứng
+    if abs(K1) < 1e-10 % Avoid division by zero (bending around weakest axis)
+        Beta_deg = 90; % Vertical axis
     else
         Slope_NA = -K2 / K1;
         Beta_rad = atan(Slope_NA);
         Beta_deg = rad2deg(Beta_rad);
     end
 
-    % Đóng gói kết quả hình học
+    % Pack geometric results
     Geom_Props = struct('Area', Area, 'Cx', Cx, 'Cy', Cy, ...
                         'Ix', Ix, 'Iy', Iy, 'Ixy', Ixy, ...
                         'Alpha_Principal_deg', rad2deg(alpha_rad), ...
                         'Beta_NeutralAxis_deg', Beta_deg);
 
-    % --- 3. TÍNH TẠI CHECKPOINTS ---
+    % --- 3. CALCULATE AT CHECKPOINTS ---
     if ~isempty(CheckPoints)
         x_chk = CheckPoints(:, 1)' - Cx;
         y_chk = CheckPoints(:, 2)' - Cy;
@@ -93,23 +94,23 @@ function [Stress_Res, Geom_Props] = calc_normal_stress(PolyCoords, CheckPoints, 
     Real_Max = max(All_Vert_Stress);
     Real_Min = min(All_Vert_Stress);
 
-    % --- 5. BÁO CÁO KẾT QUẢ ---
+    % --- 5. REPORT RESULTS ---
     fprintf('----------------------------------------\n');
-    fprintf('DAC TRUNG HINH HOC & TRUC XOAY:\n');
-    fprintf('  - Ixy (Tich quan tinh):   %.2e mm4 ', Ixy);
+    fprintf('GEOMETRIC PROPERTIES & ROTATION AXES:\n');
+    fprintf('  - Ixy (Product of Inertia):    %.2e mm4 ', Ixy);
     if abs(Ixy) > 100
-        fprintf('(Tiet dien BAT DOI XUNG)\n');
+        fprintf('(ASYMMETRIC Section)\n');
     else
-        fprintf('(Tiet dien DOI XUNG)\n');
+        fprintf('(SYMMETRIC Section)\n');
     end
-    fprintf('  - Goc truc chinh (Alpha): %.2f do\n', rad2deg(alpha_rad));
-    fprintf('  - Goc truc trung hoa (Beta): %.2f do (So voi truc X nam ngang)\n', Beta_deg);
-    fprintf('\nKET QUA UNG SUAT (GLOBAL):\n');
+    fprintf('  - Principal Axis Angle (Alpha): %.2f deg\n', rad2deg(alpha_rad));
+    fprintf('  - Neutral Axis Angle (Beta): %.2f deg (vs Horizontal X-axis)\n', Beta_deg);
+    fprintf('\nSTRESS RESULTS (GLOBAL):\n');
     fprintf('  >> MAX Sigma: %+.4f MPa\n', Real_Max);
     fprintf('  >> MIN Sigma: %+.4f MPa\n', Real_Min);
     
     if Nz ~= 0
-        fprintf('  (Luu y: Do co luc doc Nz, truc trung hoa bi tinh tien, khong di qua trong tam)\n');
+        fprintf('  (Note: Due to axial force Nz, the Neutral Axis is shifted and does not pass through the centroid)\n');
     end
     fprintf('----------------------------------------\n');
 end
