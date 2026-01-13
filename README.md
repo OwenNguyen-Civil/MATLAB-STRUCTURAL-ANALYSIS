@@ -2,7 +2,7 @@
 MATLAB Structural Analysis Engine: A robust solver for arbitrary polygonal cross-sections. Features include geometric property calculation, Normal Stress (Navier), Pixel-based Shear Stress (Zhuravskii), and Von Mises failure criteria analysis. Capable of handling complex, asymmetric, and hollow shapes.
 # 🏗️ PolyStress: General Structural Analysis Engine
 
-![Banner](Images/vietnam.png)
+![Banner](Image/vietnam.png)
 > *Figure 1: Stress distribution analysis on a complex "Godzilla" polygon (Non-convex, 100+ vertices), demonstrating the engine's robustness against arbitrary geometries.*
 
 ---
